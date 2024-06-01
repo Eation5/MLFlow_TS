@@ -1,5 +1,5 @@
 import fetch from 'node-fetch';
-import { CreateExperimentResponse, CreateRunRequest, CreateRunResponse, EndRunRequest, Experiment, GetExperimentResponse, LogBatchRequest, LogBatchResponse, Param, Metric } from './types';
+import { CreateExperimentResponse, CreateRunRequest, CreateRunResponse, EndRunRequest, Experiment, GetExperimentResponse, LogBatchRequest, LogBatchResponse, Param, Metric, Run, SearchRunsResponse, LogArtifactRequest } from './types';
 
 export class MLflowClient {
     private trackingUri: string;
@@ -44,6 +44,16 @@ export class MLflowClient {
         return this.makeRequest<CreateRunResponse>('runs/create', 'POST', runRequest);
     }
 
+    async getRun(runId: string): Promise<Run> {
+        const response = await this.makeRequest<{ run: Run }>('runs/get', 'GET', { run_id: runId });
+        return response.run;
+    }
+
+    async searchRuns(experimentIds: string[], filter?: string, orderBy?: string[], maxResults?: number): Promise<SearchRunsResponse> {
+        const requestBody = { experiment_ids: experimentIds, filter, order_by: orderBy, max_results: maxResults };
+        return this.makeRequest<SearchRunsResponse>('runs/search', 'POST', requestBody);
+    }
+
     async logBatchParams(runId: string, params: Param[]): Promise<LogBatchResponse> {
         const requestBody: LogBatchRequest = { run_id: runId, params };
         return this.makeRequest<LogBatchResponse>('runs/log-batch', 'POST', requestBody);
@@ -54,8 +64,13 @@ export class MLflowClient {
         return this.makeRequest<LogBatchResponse>('runs/log-batch', 'POST', requestBody);
     }
 
-    async endRun(runId: string, endTime: string): Promise<void> {
-        const requestBody: EndRunRequest = { run_id: runId, status: 'FINISHED', end_time: endTime };
+    async logArtifact(runId: string, path: string, artifactPath?: string): Promise<void> {
+        const requestBody: LogArtifactRequest = { run_id: runId, path, artifact_path: artifactPath };
+        await this.makeRequest<void>('runs/log-artifact', 'POST', requestBody);
+    }
+
+    async endRun(runId: string, status: 'FINISHED' | 'FAILED' | 'KILLED', endTime: string): Promise<void> {
+        const requestBody: EndRunRequest = { run_id: runId, status, end_time: endTime };
         await this.makeRequest<void>('runs/update', 'POST', requestBody);
     }
 }
